@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-GFICLEE_VERSION = '2023.9.4'
+GFICLEE_VERSION = '2023.9.11'
 
 setup(
     name='sindre-lmdb',
