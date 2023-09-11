@@ -1,4 +1,5 @@
 from .tools import *
+
 try:
     import lmdb
     import msgpack
@@ -9,11 +10,7 @@ except ImportError:
         "instructions."
     )
 
-
-
-
-
-__all__ = ["Reader", "Writer","merge_db","repair_windows_size","check_filesystem_type"]
+__all__ = ["Reader", "Writer", "merge_db", "repair_windows_size", "check_filesystem_type"]
 
 
 class Reader(object):
@@ -42,8 +39,12 @@ class Reader(object):
         self.data_db = self._lmdb_env.open_db(DATA_DB)
         self.meta_db = self._lmdb_env.open_db(META_DB)
 
-        # 读取元数据
-        self.nb_samples = int(self.get_meta_str(NB_SAMPLES))
+        # 读取元数据,BODGE:修复读取空数据库报错
+        try:
+            self.nb_samples = int(self.get_meta_str(NB_SAMPLES))
+        except ValueError:
+            self.nb_samples = 0
+
 
     def get_meta_key_info(self):
         """获取元数据库所有键"""
@@ -55,7 +56,6 @@ class Reader(object):
             for key, value in cursor:
                 key_set.add(decode_str(key))
         return key_set
-
 
     def get_data_key_info(self):
         """获取元数据库所有键"""
@@ -190,7 +190,7 @@ class Reader(object):
         # 基于第i个样本做出关于数据的假设
         samples_sum = []
         with self._lmdb_env.begin(db=self.data_db) as txn:
-            for _i in range(i , i + size):
+            for _i in range(i, i + size):
                 samples = {}
                 # 将样本编号转换为带有尾随零的字符串
                 key = encode_str("{:010}".format(_i))
@@ -206,7 +206,6 @@ class Reader(object):
                         obj[_k], raw=False, use_list=False, object_hook=decode_data
                     )
                 samples_sum.append(samples)
-
 
         return samples_sum
 
@@ -228,7 +227,6 @@ class Reader(object):
             return [self[i] for i in range(*key.indices(len(self)))]
         else:
             raise TypeError("无效的参数类型：`{}`".format(type(key)))
-
 
     def __len__(self):
         """返回数据集中的样本数量。
@@ -282,7 +280,7 @@ class Writer(object):
        同时放入RAM的数据的最大大小。此对象尝试写入的数据大小不能超过此数字。默认为 “2” GB。
     """
 
-    def __init__(self, dirpath:str, map_size_limit:int, ram_gb_limit:float=3):
+    def __init__(self, dirpath: str, map_size_limit: int, ram_gb_limit: float = 3):
         self.dirpath = dirpath
         self.map_size_limit = map_size_limit  # Megabytes (MB)
         self.ram_gb_limit = ram_gb_limit  # Gigabytes (GB)
@@ -302,7 +300,6 @@ class Writer(object):
         # 将 `map_size_limit` 从 MB 转换到 B
         map_size_limit <<= 20
 
-
         # 打开LMDB环境
         self._lmdb_env = lmdb.open(dirpath, map_size=map_size_limit, max_dbs=NB_DBS)
 
@@ -313,8 +310,7 @@ class Writer(object):
         # 启动检测服务
         self.check_db_stats()
 
-
-    def change_db_value(self,key:int,value:dict,safe_model:bool=True):
+    def change_db_value(self, key: int, value: dict, safe_model: bool = True):
         """
         修改键值
         Parameters
@@ -327,22 +323,20 @@ class Writer(object):
         -------
 
         """
-        num_size =self.nb_samples
-        if key<num_size:
+        num_size = self.nb_samples
+        if key < num_size:
             if safe_model:
-                _ok =input("\033[93m请确认你的行为,因为这样做,会强制覆盖数据,无法找回!\n"
-                f"当前数据库大小为<< {num_size} >>,索引从< 0 >>0开始计数,现在准备将修改<< {key} >>的值,同意请输入yes! 请输入:\033[93m")
+                _ok = input("\033[93m请确认你的行为,因为这样做,会强制覆盖数据,无法找回!\n"
+                            f"当前数据库大小为<< {num_size} >>,索引从< 0 >>0开始计数,现在准备将修改<< {key} >>的值,同意请输入yes! 请输入:\033[93m")
                 if _ok.strip().lower() != "yes":
-                    print("用户选择退出!")
+                    print(f"用户选择退出! 您输入的是{_ok.strip().lower()}")
                     sys.exit(0)
             self.change_value(key, value)
         else:
-            raise ValueError(f"当前数据库大小为<< {num_size} >>,将修改<< {key} >>应该小于当前数据库大小,索引从<< 0 >>开始计数! \033[0m\n")
+            raise ValueError(
+                f"当前数据库大小为<< {num_size} >>,将修改<< {key} >>应该小于当前数据库大小,索引从<< 0 >>开始计数! \033[0m\n")
 
-
-
-
-    def change_value(self,num_id:int,samples:dict):
+    def change_value(self, num_id: int, samples: dict):
         """
         通过指定索引，修改内容
         Parameters
@@ -352,7 +346,6 @@ class Writer(object):
 
 
         """
-
 
         # 检查数据类型
         gb_required = 0
@@ -371,7 +364,6 @@ class Writer(object):
             raise ValueError(
                 "正在写入的数据大小大于`ram_gb_limit`,%d < %f" % (self.ram_gb_limit, gb_required)
             )
-
 
         # 对于每个样本，构建一个msgpack并将其存储在LMDB中
         with self._lmdb_env.begin(write=True, db=self.data_db) as txn:
@@ -392,8 +384,6 @@ class Writer(object):
                 pkg = msgpack.packb(msg_pkgs, use_bin_type=True)
                 txn.put(key, pkg)
 
-
-
     def check_db_stats(self):
         """
         # 检查lmdb是继续写，还是新写
@@ -406,18 +396,18 @@ class Writer(object):
             _k = txn.get(encode_str("nb_samples"))
             if not _k:
                 self.db_stats = "create_stats"
-                print(f"\n\033[92m检测到{self.dirpath}数据库\033[93m<数据为空>,\033[92m 启动创建模式，键从<< {self.nb_samples} >>开始 \033[0m\n")
+                print(
+                    f"\n\033[92m检测到{self.dirpath}数据库\033[93m<数据为空>,\033[92m 启动创建模式，键从<< {self.nb_samples} >>开始 \033[0m\n")
             else:
                 if isinstance(_k, bytes):
                     self.nb_samples = int(decode_str(_k))
                 else:
                     self.nb_samples = int(_k)
                 self.db_stats = "auto_update_stats"
-                print(f"\n\033[92m检测到{self.dirpath}数据库\033[93m<已有数据存在>,\033[92m启动自动增量更新模式,键从<< {self.nb_samples} >>开始\033[0m\n")
+                print(
+                    f"\n\033[92m检测到{self.dirpath}数据库\033[93m<已有数据存在>,\033[92m启动自动增量更新模式,键从<< {self.nb_samples} >>开始\033[0m\n")
 
-
-
-    def put_samples(self, samples:dict):
+    def put_samples(self, samples: dict):
         """将传入内容的键和值放入`data_db` LMDB中。
 
         * 作为Python字典：
@@ -447,7 +437,6 @@ class Writer(object):
             raise ValueError(
                 "正在写入的数据大小大于`ram_gb_limit`：%d < %f" % (self.ram_gb_limit, gb_required)
             )
-
 
         try:
             # 对于每个样本，构建一个msgpack并将其存储在LMDB中
@@ -528,7 +517,8 @@ def repair_windows_size(dirpath):
     db = Writer(dirpath=dirpath, map_size_limit=1)
     db.close()
 
-def merge_db(merge_dirpath, A_dirpath, B_dirpath,map_size_limit=10000):
+
+def merge_db(merge_dirpath, A_dirpath, B_dirpath, map_size_limit=10000):
     """
     合并数据库
     Parameters
@@ -546,28 +536,22 @@ def merge_db(merge_dirpath, A_dirpath, B_dirpath,map_size_limit=10000):
     A_db = Reader(dirpath=A_dirpath)
     B_db = Reader(dirpath=B_dirpath)
 
-
     # 开始合并数据
     # 将第一个数据库的数据复制到合并后的数据库
     for i in range(A_db.nb_samples):
         merge_db.put_samples(A_db[i])
     for i in A_db.get_meta_key_info():
         # nb_samples采用自增，不能强制覆盖
-        if i !="nb_samples":
+        if i != "nb_samples":
             merge_db.set_meta_str(i, A_db.get_meta_str(i))
-
 
     for i in range(B_db.nb_samples):
         merge_db.put_samples(B_db[i])
     for i in B_db.get_meta_key_info():
         # nb_samples采用自增，不能强制覆盖
-        if i !="nb_samples":
+        if i != "nb_samples":
             merge_db.set_meta_str(i, B_db.get_meta_str(i))
-
 
     A_db.close()
     B_db.close()
     merge_db.close()
-
-
-

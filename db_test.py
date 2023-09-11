@@ -1,5 +1,33 @@
+
+# pip install sindre-lmdb
 import pylmdb as lmdb
 import numpy as np
+
+
+# class TorchDataset(torch.utils.data.Dataset):
+#     """Object for interfacing with `torch.utils.data.Dataset`.
+#     Parameter
+#     ---------
+#     dirpath : string
+#         Path to the directory containing the LMDB.
+#     """
+#     def __init__(self, dirpath):
+#         self.dirpath = dirpath
+#         self.db = Reader(self.dirpath, lock=False)
+#
+#     def __len__(self):
+#         return len(self.db)
+#
+#     def __getitem__(self, key):
+#         data = self.db[key]
+#         for k in data.keys():
+#             data[k] = torch.from_numpy(data[k])
+#
+#         return data
+#
+#     def __repr__(self):
+#         return str(self.db)
+
 if __name__ == '__main__':
     # 创建数据
     X = np.random.random((8, 2, 2, 2, 2))
